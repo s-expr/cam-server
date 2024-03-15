@@ -6,4 +6,5 @@ edition = "2021"
 [dependencies]
 opencv = "0.88.8"
 apriltag = "0.4.0"
+apriltag-image = "0.1.0"
 

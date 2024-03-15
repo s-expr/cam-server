@@ -8,16 +8,15 @@ stdenv.mkDerivation {
     stdenv.cc.cc.lib
     llvmPackages.clang
     llvmPackages.libclang
-    (opencv.override  {
-       enableGtk3 = true;
-       enableUnfree = true;
-    })
     cmake
   ];
   buildInputs = [
     binutils
     stdenv.cc.cc.lib
-    opencv
+    (opencv.override  {
+       enableGtk3 = true;
+       enableUnfree = true;
+    })
     llvmPackages.libclang
   ];
 }
