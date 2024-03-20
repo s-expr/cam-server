@@ -1,4 +1,4 @@
-mod obs;
+mod table;
 
 // Assume a fixed number of cameras and markers.
 // Should be trivial to write the ability to dynamically
