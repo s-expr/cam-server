@@ -6,8 +6,8 @@ use super::tag::{
 use opencv::core::Mat;
 use apriltag::Family;
 
-trait Detector {
-	//fn detect(&Mat, Family) -> Vec<TagID>;
+trait DetectorExt {
+	fn detect(&Mat, Family) -> Vec<TagID>;
 	//fn get_profile() -> u32; //get time it took to run
 }
 
