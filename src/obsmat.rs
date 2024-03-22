@@ -21,8 +21,8 @@ pub trait ObsnTable<Obn> {
 	fn peek(&self) -> &Obn;
 }
 
-struct ObnMat {
-
+struct ObnMat<T> {
+	numu16
 }
 
 impl ObnMat {

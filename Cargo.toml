@@ -8,4 +8,6 @@ opencv = "0.88.8"
 apriltag = "0.4.0"
 apriltag-image = "0.1.0"
 nalgebra = "0.32.4"
+tokio = { version = "1.0", features = ["rt-multi-thread", "macros"] }
+
 
