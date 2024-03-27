@@ -1,6 +1,6 @@
 mod tag_detector;
 mod obsmat;
-mod network;
+mod net;
 mod util;
 
 

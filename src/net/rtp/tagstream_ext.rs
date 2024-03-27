@@ -12,6 +12,7 @@ pub const TAGSTREAM_EXTENSION_SIZE: usize = 4;
 pub struct TagStreamExtension {
   pub offset: Point,
 }
+
 impl MarshalSize for TagStreamExtension {
   fn marshal_size(&self) -> usize {
     return TAGSTREAM_EXTENSION_SIZE;
