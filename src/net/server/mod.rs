@@ -1,25 +1,39 @@
-mod transport;
 mod proto;
-mod cam_conn;
+mod cam_ctn;
 
-use super::client::Connection;
-
-
-
-
-pub struct ServerConfig {
-	transport: Protocol,
-	connections: usize,
-}
+use cam_ctn::{CamCtn, Status, Handler};
+use proto::{Packet, Handler};
 
 pub struct CameraServer {
-	ctns: Vec<>
+	ctns: Vec<CamCtn>,
+  listeners: Vec<CamCtn>,
+  handler: Handler<Packet>,
 }
 
 impl CameraServer {
-	pub fn init(&self, cfg: ServerConfig);
+	pub fn new_listener(&self, ctn: CamCtn) {
+  }
 
-	fn disconnect(&self, addr: &str);
-	fn bind_addr(&self, addr: &str);
-	fn port(&self, addr: u16);
+	fn on_connect(&self, ctn:CamCtn) {
+
+  }
+
+	fn status(&self) -> Vec<Status> {
+    self.ctns.map(|ctn| ctn.status())
+  }
+
+  fn handle_conn(&self, ctn: CamCtn) {
+
+  }
+
+	fn disconnect(&self, id: usize) {
+
+  }
+
+
+	fn shutdown(&self ) {
+
+  }
+
+
 }
