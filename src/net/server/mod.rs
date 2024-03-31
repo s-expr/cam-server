@@ -1,7 +1,7 @@
-mod proto;
-mod cam_ctn;
+pub mod proto;
+pub mod cam_ctn;
 
-use cam_ctn::{CamCtn, Status, Handler};
+use cam_ctn::{CamCtn, Status};
 use proto::{Packet, Handler};
 
 pub struct CameraServer {
@@ -11,18 +11,17 @@ pub struct CameraServer {
 }
 
 impl CameraServer {
-	pub fn new_listener(&self, ctn: CamCtn) {
+	pub fn new_listener(&self, ctn: dyn CamCtn) {
   }
 
-	fn on_connect(&self, ctn:CamCtn) {
-
+	fn on_connect(&self, ctn: dyn CamCtn) {
   }
 
 	fn status(&self) -> Vec<Status> {
     self.ctns.map(|ctn| ctn.status())
   }
 
-  fn handle_conn(&self, ctn: CamCtn) {
+  fn handle_conn(&self, ctn: dyn CamCtn) {
 
   }
 

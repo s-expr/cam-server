@@ -1,7 +1,6 @@
-mod serial;
-mod udp;
-mod tcp;
-
+pub mod serial;
+pub mod udp;
+pub mod tcp;
 
 use bytes::Buf;
 use super::proto::{Packet, Handler};
@@ -15,21 +14,23 @@ pub enum Status {
 pub struct CamCtnInfo {
   addr: &'static str,
   port: usize,
-  remote_addr: Option<&'static str>,
+  peer_addr: Option<&'static str>,
 }
 
 
 //we love an existential type
-trait CamCtn {
-  fn new_listener(&self, handle: Handler) -> Self;
-  fn new(&self, handle: Handler, info: CamCtnInfo) -> Self;
-  fn status(&self) -> Status;
-  fn close(&self);
-  fn send(&self, p: Packet);
-  fn get_addr(&self) -> &'static str;
-  fn get_remote_addr(&self) -> Option<&'static str>;
-  fn new_port(&self, ) -> Self;
-  fn bind(&self) -> Self;
+pub trait CamCtn {
+  fn new<P: Packet>(info: CamCtnInfo, handle: Handler<P>) -> Self;
+  //fn new_listener(handle: Handler) -> Self;
 
-  fn set_handler(&self, handle: Handler);
+  fn close<E>(&self) -> Result<(), E>;
+  fn send<P: Packet>(&self, p: P);
+
+  fn get_status(&self) -> Status;
+  fn get_addr(&self) -> &'static str;
+  fn get_peer_addr(&self) -> Option<&'static str>;
+
+  //fn bind(&self) -> Self;
+  //fn set_handler(&self, handle: Handler);
+  //fn new_port(&self, ) -> Self;
 }

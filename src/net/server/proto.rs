@@ -1,5 +1,12 @@
+//mod rtp;
+pub mod raw;
 
-pub type Handler<T> = dyn Fn(T) -> ();
+use bytes::Buf;
+use tokio::io::Error;
+
+pub type Handler<P: Packet> = fn(P) -> ();
+
 pub trait Packet {
-  
+  fn marshal<E, B: Buf>(&self, buf: &mut B) -> Result<(), E>;
+  fn unmarshal<E, B: Buf>(buf: &mut B) -> Result<Self, E>; 
 }

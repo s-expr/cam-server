@@ -1,4 +1,5 @@
 use apriltag::Image;
+use apriltag::image_buf::DEFAULT_ALIGNMENT_U8;
 use opencv::prelude::Mat;
 
 trait MatExt {
