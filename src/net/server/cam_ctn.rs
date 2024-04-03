@@ -3,7 +3,9 @@ pub mod udp;
 pub mod tcp;
 
 use bytes::Buf;
+use std::io::Error;
 use super::proto::{Packet, Handler};
+use tokio::sync::mpsc::Sender;
 
 pub enum Status {
   Connected,
@@ -18,19 +20,20 @@ pub struct CamCtnInfo {
 }
 
 
-//we love an existential type
-pub trait CamCtn {
-  fn new<P: Packet>(info: CamCtnInfo, handle: Handler<P>) -> Self;
+
+//may need to 
+pub trait CamCtn<P: Packet + Sized> {
+  fn new(info: CamCtnInfo, packet_tx: Sender<P>)
+         -> Result<Self, std::io::Error> where Self: Sized;
   //fn new_listener(handle: Handler) -> Self;
 
-  fn close<E>(&self) -> Result<(), E>;
-  fn send<P: Packet>(&self, p: P);
+  fn close(&self) -> Result<(), Error>;
+  fn send(&self, p: P);
 
   fn get_status(&self) -> Status;
   fn get_addr(&self) -> &'static str;
   fn get_peer_addr(&self) -> Option<&'static str>;
 
   //fn bind(&self) -> Self;
-  //fn set_handler(&self, handle: Handler);
   //fn new_port(&self, ) -> Self;
 }

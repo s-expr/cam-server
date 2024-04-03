@@ -14,9 +14,7 @@ mod tests {
   use tokio::runtime;
   #[test]
   pub fn test_udp_connection() {
-    use crate::net::server::cam_ctn::*;
-    use crate::net::server::proto::{Handler, Packet};
-
-    let rt = 
+    use crate::net::server::cam_ctn;
+    use crate::net::server::proto;
   }
 }
