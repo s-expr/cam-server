@@ -1,14 +1,13 @@
 use bytes::{Buf, BufMut};
-use tokio::io::Error;
 use super::Packet;
 
-impl<B: Buf> Packet for B {
-  fn unmarshal(buf: &mut B) -> Result<Self, Error> {
-    Ok(buf.clone())
+impl Packet for &[u8] {
+  fn unmarshal<B: Buf>(buf: &mut B) -> Result<Self, ()> {
+    Ok(buf.chunk())
   }
 
-  fn marshal(&self, buf: &mut B) -> Result<(), Error> {
-    Ok(())
+  fn marshal<B: BufMut>(&self, buf: &mut B)  {
+    buf.put_slice(self)
   }
 }
 
