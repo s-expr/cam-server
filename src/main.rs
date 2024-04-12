@@ -1,3 +1,5 @@
+#![allow(unused_imports)]
+#![allow(unused)]
 pub mod tag_detector;
 //mod obsmat;
 pub mod net;

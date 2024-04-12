@@ -1,6 +1,6 @@
 use apriltag::Image;
 use apriltag::image_buf::DEFAULT_ALIGNMENT_U8;
-use opencv::prelude::Mat;
+use opencv::prelude::*;
 
 trait MatExt {
 	fn as_aprilimg(&self) -> Image;

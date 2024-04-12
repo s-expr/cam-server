@@ -3,7 +3,7 @@ use super::tag::{
 	TagID
 };
 
-use opencv::core::Mat;
+use opencv::prelude::Mat;
 use apriltag::Family;
 
 trait DetectorExt {
