@@ -3,7 +3,7 @@ use crate::net::server::proto::Packet;
 use super::{Status, CamCtnInfo, CamCtn};
 
 use tokio::sync::oneshot;
-use tokio::sync;
+use tokio::sync::mpsc;
 use tokio::net::UdpSocket;
 use std::sync::Arc;
 use std::io::Error;
@@ -11,23 +11,22 @@ use std::io::Error;
 pub const DEFAULT_UDP_START_PORT: usize = 25565;
 pub const MTU: usize = 10000000;
 
-type Sender<T> = sync::oneshot::Sender<T>;
 
 struct NetThreadHandle<P: Packet> {
-  close: Sender<()>,
-  packet: Sender<P>,
+  close: mpsc::Sender<()>,
+  status: (mpsc::UnboundedSender<()>, mpsc::Receiver<Status>),
+  send_packet: mpsc::Sender<P>,
   handle: tokio::task::JoinHandle<()>
 }
 
 pub struct UdpCtn<P: Packet> {
   info: CamCtnInfo,
-  status: Status,
-  socket_h: Option<NetThreadHandle<P>>
+  socket_h: NetThreadHandle<P>
 }
 
 impl<P: Packet> NetThreadHandle<P> {
   //TODO: make this error tolerant
-  fn req_close(&self) -> Result<(), tokio::task::JoinError> {
+  fn req_close(self) -> Result<(), tokio::task::JoinError> {
     self.close.send(());
     util::sync(async {
       self.handle.await
@@ -35,79 +34,82 @@ impl<P: Packet> NetThreadHandle<P> {
   }
 
   //TODO: make this error tolerant
-  fn send_packet(&self, packet: P) -> Result<(), P> {
-    self.packet.send(packet)
+  fn send_packet(&mut self, packet: P) -> Result<(), mpsc::error::TrySendError<P>> {
+    self.send_packet.try_send(packet)
+  }
+
+  fn get_status(&mut self) -> Option<Status> {
+    let (send,recv) = &mut self.status;
+    send.send(());
+    recv.blocking_recv()
   }
 }
 
-impl<P: Packet> CamCtn<P> for UdpCtn<P> {
-  fn new(info: CamCtnInfo, packet_out: sync::mpsc::Sender<P> )
+impl<P: Packet + 'static> CamCtn<P> for UdpCtn<P> {
+  fn new(info: CamCtnInfo, packet_out: mpsc::Sender<P> )
          -> Result<UdpCtn<P> , std::io::Error> {
     let mut status = Status::Connected;
     let socket = util::sync(async {
-      Arc::new(UdpSocket::bind(format!(
+      UdpSocket::bind(format!(
         "{}:{}",
         info.addr,
         info.port
-      )).await.unwrap())
+      )).await.unwrap()
     });
-    let (close_tx , close_rx) = oneshot::channel();
-    let (packet_tx , packet_rx) = oneshot::channel::<P>();
-    let mut ctn = UdpCtn::<P> {
-      info,
-      status,
-      socket_h: None
-    };
 
-    let handle = tokio::spawn(async {
+    let (close_tx , mut close_rx) = mpsc::channel::<()>(0);
+    let (packet_tx , mut packet_rx) = mpsc::channel::<P>(MTU);
+    let (status_poll_tx , mut status_poll_rx) = mpsc::unbounded_channel();
+    let (status_info_tx , mut status_info_rx) = mpsc::channel::<Status>(MTU);
+
+    let id = info.id.clone(); 
+    let handle = tokio::spawn(async move {
+      let mut status = Status::Unconnected;
       let mut buf = bytes::BytesMut::with_capacity(MTU);
-      tokio::select! {
-        p = socket.recv(&mut buf) => {
-          println!("packet");
-        }
-      }
       loop {
-        let err_or_p = match socket.recv(&mut buf).await {
-          Ok(_) => {
-            P::unmarshal(&mut buf)
+        tokio::select! {
+          p = socket.recv(&mut buf) => {
+            match P::unmarshal(&mut buf) {
+              Ok(p) =>
+                packet_out.send(p).await
+                .expect(&format!("unable to receive packet from camera {}", id)),
+              Err(_) => println!("invalid packet received!"),
+            }
           },
-          e => {
-            ctn.status = Status::Error;
-            println!("unable to receive packet");
-            continue 
-          },
-        };
-        
-        match err_or_p {
-          Ok(packet) => {
-            packet_out.send(packet);
-          },
-          e => {
-            println!("Invalid packet format");
-            continue
+          _ = status_poll_rx.recv() => {
+            status_info_tx.send(status);
+          }
+          _ = close_rx.recv() => {
+            println!("shutting down thread for camera {}",  id);
+            return;
           }
         }
       }
     });
-    ctn.socket_h = Some(NetThreadHandle {
-      close: close_tx,
-      packet: packet_tx,
-      handle
-    });
+    let mut ctn = UdpCtn::<P> { 
+      info,
+      socket_h : NetThreadHandle::<P> {
+        close: close_tx,
+        send_packet: packet_tx,
+        status: (status_poll_tx, status_info_rx),
+        handle
+      }
+    };
     Ok(ctn)
   }
 
-  fn close(&self) -> Result<(), Error> {
-    self.status = Status::Unconnected;
-    Ok(())
+  fn close(self) -> Result<(), Error> {
+    Ok(self.socket_h.req_close()?)
   }
 
 
-  fn send(&self, p:P) {
+  //
+  fn send(&mut self, p:P) {
+    self.socket_h.send_packet(p);
   }
 
-  fn get_status(&self) -> Status {
-    self.status
+  fn get_status(&mut self) -> Status {
+    self.socket_h.get_status().unwrap()
   }
 
   fn get_addr(&self) -> &'static str {
