@@ -24,7 +24,6 @@ pub struct CamCtnInfo {
 
 
 
-//may need to 
 pub trait CamCtn<P: Packet + Sized> {
   fn new(info: CamCtnInfo, packet_tx: Sender<P>)
          -> Result<Self, std::io::Error> where Self: Sized;
@@ -32,7 +31,6 @@ pub trait CamCtn<P: Packet + Sized> {
 
   fn close(self) -> Result<(), Error>;
   fn send(&mut self, p: P);
-
   fn get_status(&mut self) -> Status;
   fn get_addr(&self) -> &'static str;
   fn get_peer_addr(&self) -> Option<&'static str>;
