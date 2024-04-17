@@ -2,7 +2,7 @@ use rtp::packet::Packet as RtpPacket;
 use rtp::Error;
 use rtp::extension::HeaderExtension;
 use webrtc_util::{Marshal, MarshalSize, Unmarshal};
-use bytes::{Buf, BufMut};
+use bytes::buf::{Buf, BufMut};
 use serde::{Deserialize, Serialize};
 use crate::util::Point;
 use super::Packet;
@@ -11,7 +11,7 @@ use super::Packet;
 pub const TAGSTREAM_HEADER_EXTENSION_SIZE: usize = 4;
 pub const TAGSTREAM_HEADER_UID: &'static str = "urn:params:ts:rtp-ts:img_offset";
 
-#[derive(PartialEq, Eq, Debug, Default, Copy, Clone, Serialize, Deserialize)]
+#[derive(PartialEq, Eq, Debug, Default, Copy, Clone )]
 pub struct TagStreamExtension {
   pub offset: Point,
 }
@@ -23,9 +23,9 @@ impl MarshalSize for TagStreamExtension {
 }
 
 impl Marshal for TagStreamExtension {
-  fn marshal_to(&self, mut buf: &mut [u8]) -> Result<usize, Error> {
-    buf.put_u16(self.x);
-    buf.put_u16(self.y);
+  fn marshal_to(&self, mut buf: &mut [u8]) -> webrtc_util::Result<usize> {
+    buf.put_u16(self.offset.x);
+    buf.put_u16(self.offset.y);
     Ok(TAGSTREAM_HEADER_EXTENSION_SIZE)
   }
 }
@@ -38,9 +38,11 @@ impl Unmarshal for TagStreamExtension {
     if buf.remaining() < TAGSTREAM_HEADER_EXTENSION_SIZE {
       Err(Error::ErrBufferTooSmall.into())
     } else {
-      Ok(Point {
-        x: buf.get_u16(),
-        y: buf.get_u16()
+      Ok(TagStreamExtension {
+        offset: Point {
+          x: buf.get_u16(),
+          y: buf.get_u16()
+        }
       })
     }
   }
@@ -48,12 +50,14 @@ impl Unmarshal for TagStreamExtension {
 
 
 impl Packet for RtpPacket {
-  fn unmarshal<B: Buf>(&self, buf: &mut B) -> Result<Self, Error> {
-    let p = RtpPacket::unmarshal(buf)?;
-    let ext = 
+  fn unmarshal<B: Buf>(buf: &mut B) -> Result<Self, ()> {
+    Ok(Unmarshal::unmarshal(buf).unwrap())
   }
 
-  fn marshal<B: Buf>(&self, buf: &mut B) {
-
+  fn marshal<B: BufMut>(&self, buf: &mut B) {
+    //ferris please optimize this out
+    let mut slice: Vec<u8> = Vec::with_capacity(buf.remaining_mut());
+    self.marshal_to(&mut slice);
+    buf.put_slice(&slice)
   }
 }
