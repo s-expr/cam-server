@@ -69,3 +69,38 @@ impl EKF {
         self.cov = (Matrix3::identity() - &k * &h) * &self.cov;
     }
 }
+
+struct EKFThread {
+    ekf: Arc<Mutex<EKF>>,
+    queue: Arc<Mutex<VecDeque<(Vector2<f64>, Matrix3x4<f64>, u64)>>>,
+}
+
+impl EKFThread {
+    fn new(ekf: EKF) -> EKFThread {
+        EKFThread {
+            ekf: Arc::new(Mutex::new(ekf)),
+            queue: Arc::new(Mutex::new(VecDeque::new())),
+        }
+    }
+
+    fn run(&self) {
+        loop {
+            let (meas, t, timestep) = {
+                let mut queue = self.queue.lock().unwrap();
+                if let Some(item) = queue.pop_front() {
+                    item
+                } else {
+                    return;
+                }
+            };
+
+            let mut ekf = self.ekf.lock().unwrap();
+            ekf.filter(meas, t, timestep);
+        }
+    }
+
+    fn add_to_queue(&self, meas: Vector2<f64>, t: Matrix3x4<f64>, timestep: u64) {
+        let mut queue = self.queue.lock().unwrap();
+        queue.push_back((meas, t, timestep));
+    }
+}
