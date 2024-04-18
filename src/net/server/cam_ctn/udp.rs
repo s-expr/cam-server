@@ -5,6 +5,7 @@ use super::{Status, CamCtnInfo, CamCtn};
 use tokio::sync::oneshot;
 use tokio::sync::mpsc;
 use tokio::net::UdpSocket;
+use std::io::Cursor;
 use std::sync::Arc;
 use std::io::Error;
 
@@ -45,19 +46,13 @@ impl<P: Packet> NetThreadHandle<P> {
   }
 }
 
-impl<P: Packet + 'static> CamCtn<P> for UdpCtn<P> {
+impl<P: Packet + 'static > CamCtn<P> for UdpCtn<P> {
   fn new(info: CamCtnInfo, packet_out: mpsc::Sender<P> )
          -> Result<UdpCtn<P> , std::io::Error> {
     let mut status = Status::Connected;
-    let socket = util::sync(async {
-      UdpSocket::bind(format!(
-        "{}:{}",
-        info.addr,
-        info.port
-      )).await.unwrap()
-    });
 
-    let (close_tx , mut close_rx) = mpsc::channel::<()>(0);
+
+    let (close_tx , mut close_rx) = mpsc::channel::<()>(1);
     let (packet_tx , mut packet_rx) = mpsc::channel::<P>(MTU);
     let (status_poll_tx , mut status_poll_rx) = mpsc::unbounded_channel();
     let (status_info_tx , mut status_info_rx) = mpsc::channel::<Status>(MTU);
@@ -65,14 +60,25 @@ impl<P: Packet + 'static> CamCtn<P> for UdpCtn<P> {
     let id = info.id.clone(); 
     let handle = tokio::spawn(async move {
       let mut status = Status::Unconnected;
-      let mut buf = bytes::BytesMut::with_capacity(MTU);
+      let mut buf = Vec::with_capacity(MTU);
+      buf.resize(MTU, 0);
+      let socket = UdpSocket::bind(format!(
+          "{}:{}",
+          info.addr,
+          info.port
+        )).await.unwrap();
       loop {
         tokio::select! {
           p = socket.recv(&mut buf) => {
-            match P::unmarshal(&mut buf) {
-              Ok(p) =>
+            match p {
+              Ok(size) =>{
+                println!("size received {}", size);
+                println!("id {}", buf[size - 1]);
+                let slc = &buf[0..size];
+                let p = P::unmarshal(&mut Cursor::new(slc)).unwrap();
                 packet_out.send(p).await
-                .expect(&format!("unable to receive packet from camera {}", id)),
+                .expect(&format!("unable to receive packet from camera {}", id))
+              }
               Err(_) => println!("invalid packet received!"),
             }
           },
@@ -116,7 +122,4 @@ impl<P: Packet + 'static> CamCtn<P> for UdpCtn<P> {
     self.info.addr
   }
 
-  fn get_peer_addr(&self) -> Option<&'static str>{
-    self.info.peer_addr
-  }
 }

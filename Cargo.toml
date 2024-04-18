@@ -4,14 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-opencv = "0.88.8"
+#opencv = "0.88.8"
 apriltag = "0.4.0"
 apriltag-image = "0.1.0"
-nalgebra = "0.32.4"
+nalgebra = "0.32.5"
 tokio = { version = "1.0", features = ["rt-multi-thread", "macros"] }
 bytes = "1"
 rtp = "0.10.0"
 webrtc-util = "0.8.1"
 serde = "1.0.197"
+kiss3d = "0.35.0"
+byte_struct = "0.9.0"
 
 

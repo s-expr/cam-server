@@ -18,7 +18,8 @@ impl<P: Packet> CameraServer<P> {
   }
 
 	fn status(&mut self) -> Vec<Status> {
-    self.ctns.into_iter().map(|mut ctn| (&mut *ctn).get_status()).collect()
+    //self.ctns.into_iter().map(|mut ctn| (&mut *ctn).get_status()).collect()
+    todo!()
   }
 
   fn handle_conn(&self, ctn: Ctn<P>) {

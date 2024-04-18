@@ -9,6 +9,8 @@ stdenv.mkDerivation {
     llvmPackages.clang
     llvmPackages.libclang
     cmake
+    rustPlatform.bindgenHook
+
   ];
   buildInputs = [
     binutils
