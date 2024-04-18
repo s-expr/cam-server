@@ -1,36 +1,30 @@
 extern crate kiss3d;
 extern crate nalgebra as na;
 
-use std::{f32::consts::PI, intrinsics::size_of};
+use std::{borrow::Borrow, f32::consts::PI};
 use kiss3d::light::Light;
 use kiss3d::window::Window;
 use na::{Point3, Translation3};
-use tokio::sync::mpsc;
+use tokio::{io::Join, net::unix::pipe::Sender, sync::mpsc, task::JoinHandle};
 
 const POINT_RADIUS: f32 = 0.1; // Increase the radius for larger point representation
 
 pub struct TagPoint {
     pub id : u16,
-    pub tr : Translation3,
+    pub tr : Translation3<f32>,
 }
 
-#[tokio::spawn_vthread]
-pub async fn spawn_vthread() {
+pub fn spawn_vthread() -> (JoinHandle<()>, mpsc::Sender<TagPoint>) {
 
     let (tx, mut rx) = mpsc::channel::<TagPoint>(10000);
 
     let jh = tokio::spawn(async move {
-
-        // Create a window for rendering.
-        let mut window = Window::new("Kiss3d: moving point");
+        
+        let window = Window::new("Kiss3d: moving point");
 
         // Set the light to be in the front.
         window.set_light(Light::StickToCamera);
         window.set_background_color(0.8, 0.8, 0.8);
-
-        // Time step for the animation.
-        let mut time = 0.0f32;
-        let time_step = 0.016f32; // Approximately 60Hz
 
         // Create a sphere that will represent the point.
         let mut sphere0 = window.add_sphere(POINT_RADIUS);
@@ -47,12 +41,13 @@ pub async fn spawn_vthread() {
 
         // Main loop.
         while window.render() {
-            let recv_pt = rx.recv().await;
+            let recv_pt = rx.recv().await.unwrap();
 
-            let update_sphere = match(pt.id) {
-                0 => sphere0,
-                1 => sphere1,
-                2 => sphere2,
+            let update_sphere = match(recv_pt.id) {
+                0 => &mut sphere0,
+                1 => &mut sphere1,
+                2 => &mut sphere2,
+                _ => continue,
             };
 
             // Draw axis
@@ -62,9 +57,6 @@ pub async fn spawn_vthread() {
   
             // Set the new position for the sphere.
             update_sphere.set_local_translation(recv_pt.tr);
-
-            // Increment the time for the animation.
-            time += time_step;
         }
     });
 
