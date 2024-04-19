@@ -33,8 +33,8 @@ fn mat_to_img(mat: &Mat) -> Result<Image, Error> {
 
 fn detect(mat: &Mat) -> Result<(), Error>{
 	let builder = DetectorBuilder::new();
-	let family: Family = "tag16h5".parse().unwrap();
-	let mut det = builder.add_family_bits(family,1).build().unwrap();
+	let family: Family = "TagCustom48h12".parse().unwrap();
+	let mut det = builder.add_family_bits(family,0).build().unwrap();
 	let img = mat_to_img(mat);
 
 	for (index, d) in det.detect(&img?).into_iter().enumerate() {

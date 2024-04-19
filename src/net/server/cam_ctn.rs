@@ -4,7 +4,7 @@ pub mod tcp;
 
 use bytes::Buf;
 use std::io::Error;
-use super::proto::Packet
+use super::proto::Packet;
 use tokio::sync::mpsc::Sender;
 
 #[derive(Copy, Clone)]

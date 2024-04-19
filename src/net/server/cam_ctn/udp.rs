@@ -12,7 +12,6 @@ use std::io::Error;
 pub const DEFAULT_UDP_START_PORT: usize = 25565;
 pub const MTU: usize = 10000000;
 
-
 struct NetThreadHandle<P: Packet> {
   close: mpsc::Sender<()>,
   status: (mpsc::UnboundedSender<()>, mpsc::Receiver<Status>),
@@ -72,12 +71,12 @@ impl<P: Packet + 'static > CamCtn<P> for UdpCtn<P> {
           p = socket.recv(&mut buf) => {
             match p {
               Ok(size) =>{
-                println!("size received {}", size);
-                println!("id {}", buf[size - 1]);
                 let slc = &buf[0..size];
                 let p = P::unmarshal(&mut Cursor::new(slc)).unwrap();
-                packet_out.send(p).await
-                .expect(&format!("unable to receive packet from camera {}", id))
+                packet_out
+                  .send(p).await
+                  .expect(&format!("unable to receive packet from camera {}", id));
+
               }
               Err(_) => println!("invalid packet received!"),
             }

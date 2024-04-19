@@ -1,3 +1,3 @@
-mod tag;
-mod detector;
-mod image;
+pub mod tag;
+pub mod detector;
+pub mod image;

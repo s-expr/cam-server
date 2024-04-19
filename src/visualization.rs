@@ -1,73 +1,73 @@
 extern crate kiss3d;
 extern crate nalgebra as na;
 
-use std::{f32::consts::PI, intrinsics::size_of};
-use kiss3d::light::Light;
+use std::f32::consts::PI;
+use std::collections::HashMap;
+use kiss3d::{light::Light, scene::SceneNode};
 use kiss3d::window::Window;
 use na::{Point3, Translation3};
-use tokio::sync::mpsc;
+use crate::{
+  tag_detector::detector::TagID,
+  config,
+};
 
+use tokio::sync::{
+  mpsc,
+  mpsc::UnboundedReceiver,
+};
+
+
+type TagPoint = (TagID, na::Vector3<f64>);
 const POINT_RADIUS: f32 = 0.1; // Increase the radius for larger point representation
 
-pub struct TagPoint {
-    pub id : u16,
-    pub tr : Translation3,
-}
+    
+pub async fn visualize(points_rx: &mut UnboundedReceiver<TagPoint>) {
 
-#[tokio::spawn_vthread]
-pub async fn spawn_vthread() {
+  loop {
 
-    let (tx, mut rx) = mpsc::channel::<TagPoint>(10000);
+    // Create a window for rendering.
+    let mut window = Window::new("Kiss3d: moving point");
 
-    let jh = tokio::spawn(async move {
+    // Set the light to be in the front.
+    window.set_light(Light::StickToCamera);
+    window.set_background_color(0.8, 0.8, 0.8);
 
-        // Create a window for rendering.
-        let mut window = Window::new("Kiss3d: moving point");
+    // Time step for the animation.
+    let mut time = 0.0f32;
+    let time_step = 0.016f32; // Approximately 60Hz
 
-        // Set the light to be in the front.
-        window.set_light(Light::StickToCamera);
-        window.set_background_color(0.8, 0.8, 0.8);
+    // Create a spheres that will represent the point.
+    let spheres: HashMap<TagID, SceneNode> = HashMap::new();
+    for i in config::TAGS {
+      spheres[&i] = window.add_sphere(POINT_RADIUS);
+    }
 
-        // Time step for the animation.
-        let mut time = 0.0f32;
-        let time_step = 0.016f32; // Approximately 60Hz
+    // Set the color of the sphere (optional, default is white).
+    for (_, sphere) in spheres {
+      sphere.set_color(1.0, 0.0, 0.0); // Red
+    }
 
-        // Create a sphere that will represent the point.
-        let mut sphere0 = window.add_sphere(POINT_RADIUS);
-        let mut sphere1 = window.add_sphere(POINT_RADIUS);
-        let mut sphere2 = window.add_sphere(POINT_RADIUS);
+    // Axis length.
+    let axis_length = 4.0;
 
-        // Set the color of the sphere (optional, default is white).
-        sphere0.set_color(1.0, 0.0, 0.0); // Red
-        sphere1.set_color(0.0, 1.0, 0.0); // Green
-        sphere2.set_color(0.0, 0.0, 1.0); // Blue
+    // Main loop.
+    while window.render() {
+      let (id, pos) = points_rx.recv().await.unwrap();
 
-        // Axis length.
-        let axis_length = 4.0;
+      for (_, sphere) in spheres {
+        sphere.set_color(1.0, 0.0, 0.0); // Red
+      }
 
-        // Main loop.
-        while window.render() {
-            let recv_pt = rx.recv().await;
+      // Draw axis
+      window.draw_line(&Point3::new(0.0, 0.0, 0.0), &Point3::new(axis_length, 0.0, 0.0), &Point3::new(1.0, 0.0, 0.0));
+      window.draw_line(&Point3::new(0.0, 0.0, 0.0), &Point3::new(0.0, axis_length, 0.0), &Point3::new(0.0, 1.0, 0.0));
+      window.draw_line(&Point3::new(0.0, 0.0, 0.0), &Point3::new(0.0, 0.0, axis_length), &Point3::new(0.0, 0.0, 1.0));
+      
+      // Set the new position for the sphere.
+      spheres[&id].set_local_translation(recv_pt.tr);
 
-            let update_sphere = match(pt.id) {
-                0 => sphere0,
-                1 => sphere1,
-                2 => sphere2,
-            };
-
-            // Draw axis
-            window.draw_line(&Point3::new(0.0, 0.0, 0.0), &Point3::new(axis_length, 0.0, 0.0), &Point3::new(1.0, 0.0, 0.0));
-            window.draw_line(&Point3::new(0.0, 0.0, 0.0), &Point3::new(0.0, axis_length, 0.0), &Point3::new(0.0, 1.0, 0.0));
-            window.draw_line(&Point3::new(0.0, 0.0, 0.0), &Point3::new(0.0, 0.0, axis_length), &Point3::new(0.0, 0.0, 1.0));
-  
-            // Set the new position for the sphere.
-            update_sphere.set_local_translation(recv_pt.tr);
-
-            // Increment the time for the animation.
-            time += time_step;
-        }
-    });
-
-    return (jh, tx);
-
+      // Increment the time for the animation.
+      time += time_step;
+    }
+  }
 }
