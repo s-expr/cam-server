@@ -4,15 +4,17 @@ stdenv.mkDerivation {
   nativeBuildInputs = [
     rustc
     cargo
+    rust-analyzer
     pkg-config
     stdenv.cc.cc.lib
     llvmPackages.clang
     llvmPackages.libclang
     cmake
     rustPlatform.bindgenHook
-
+    pkgs.darwin.apple_sdk_11_0.frameworks.AppKit
   ];
   buildInputs = [
+    libiconv
     binutils
     stdenv.cc.cc.lib
     (opencv.override  {

@@ -21,8 +21,7 @@ impl Packet for TagStreamPacket {
         px : buf.get_u16(),
         py : buf.get_u16(),
         width : buf.get_u16(),
-        ts_useconds : buf.get_f64(),
-        ts_seconds : buf.get_f64(),
+        ts: buf.get_u32(),
       };
     buf.advance(1);
     Ok(TagStreamPacket {
@@ -36,8 +35,7 @@ impl Packet for TagStreamPacket {
     buf.put_u16(self.header.px);
     buf.put_u16(self.header.py);
     buf.put_u16(self.header.width);
-    buf.put_f64(self.header.ts_useconds);
-    buf.put_f64(self.header.ts_seconds);
+    buf.put_u32(self.header.ts);
     buf.put_slice(&self.data)
   }
 }

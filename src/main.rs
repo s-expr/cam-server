@@ -37,7 +37,7 @@ async fn main() {
   let mut ctns: Vec<UdpCtn<TagStreamPacket>> = Vec::new();
   for i in 0..config::NUM_CAMERAS {
     let info: CamCtnInfo = CamCtnInfo {
-      addr : "192.168.0.189",
+      addr : config::ADDRESS,
       port : config::START_PORT + i,
       id : i,
     };
@@ -67,7 +67,6 @@ async fn main() {
           let img = &packet.data.as_aprilimg(w,w);
 
           //visualizaition for debug
-          /*
           let mat = Mat::from_slice_rows_cols(
             img.as_slice(),
             w, w
@@ -79,13 +78,14 @@ async fn main() {
 
           highgui::imshow(window, &mat.unwrap());
           let key = highgui::wait_key(10);
-          */
 
           let maybe_det = wrap.det.detect_one(img);
           if let Some((id, [center_x, center_y])) = maybe_det {
+            println!("Detected tag id {} from camera {} at {}",
+                     id, head.cam_id, head.ts)
             //TODO: make less error prome with try_into(). 
-            head.px += center_x as u16;
-            head.py += center_y as u16;
+            //head.px += center_x as u16;
+            //head.py += center_y as u16;
             
           }
         }
