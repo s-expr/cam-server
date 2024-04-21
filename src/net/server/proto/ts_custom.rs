@@ -6,8 +6,7 @@ pub struct TagStreamHeader {
   pub px : u16,
   pub py : u16,
   pub width : u16,
-  pub ts_useconds: f64,
-  pub ts_seconds: f64,
+  pub ts: u32,
 }
 
 pub struct TagStreamPacket {

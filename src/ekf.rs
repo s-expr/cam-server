@@ -94,8 +94,13 @@ impl EKFThreadPool {
     // create an ekf for each tag and parallelize it into a thread
     let threads = ids.iter().fold(HashMap::new(), |mut tds, id| {
       let (td_tx, mut td_rx) = mpsc::unbounded_channel::<FilterArgs>();
-      let ekf = todo!();//  proc_cov?
-      tds[id] = (td_tx, Self::new_proxy(ekf, tp_tx.clone(), td_rx, *id)); 
+      let ekf = EKF::new(Matrix2::from_element(1e-3),
+                         Matrix3::from_element(1e-4),
+                         Vector3::zeros(),
+                         Matrix3::zeros());
+        //  proc_cov?
+      tds.insert(*id, (td_tx, Self::new_proxy(ekf, tp_tx.clone(), td_rx, *id))); 
+      return tds
     });
 
     EKFThreadPool {
