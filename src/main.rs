@@ -71,7 +71,7 @@ async fn main() {
           println!("Received a window of size {}x{} px:{} py:{} fc:{} from camera {}",
                    head.width, head.width, head.px, head.py, head.ts, cid);
 
-          /*
+          
           //visualizaition for debug
           let mat = Mat::from_slice_rows_cols(
             img.as_slice(),
@@ -86,7 +86,7 @@ async fn main() {
           let key = highgui::wait_key(10);
 
 
-          */
+          
           let maybe_det = wrap.det.detect_one(img);
           if let Some((id, [center_x, center_y])) = maybe_det {
             println!("Detected tag id {}", id);
@@ -109,8 +109,14 @@ async fn main() {
 
 
   // STAGE 3: Visualization
-  visualization::visualize(&mut tag_pos_rx);
-  loop {}
+  // visualization::visualize(&mut tag_pos_rx).await;
+  loop {
+    let (id, pt) = tag_pos_rx.recv().await.unwrap();
+    let a = pt.x;
+    let b = pt.y;
+    let c = pt.z;
+    print!("{id} x: {a} y: {b} z: {c}\n");
+  }
 }
 
 

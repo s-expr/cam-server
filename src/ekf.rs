@@ -70,10 +70,15 @@ impl EKF {
     let y = meas - measurement_model(&self.x, &t);
 
     let s = &h * &self.cov * h.transpose() + &self.r;
-    let k = &self.cov * (h.transpose() * s.try_inverse().unwrap());
 
-    self.x += &k * y;
-    self.cov = (Matrix3::identity() - &k * &h) * &self.cov;
+
+    if let Some(s_inv) = s.try_inverse() {
+      let k = &self.cov * (h.transpose() * s_inv);
+      self.x += &k * y;
+      self.cov = (Matrix3::identity() - &k * &h) * &self.cov;
+    } else { 
+      return;
+    }
   }
 
 }
@@ -126,11 +131,13 @@ impl EKFThreadPool {
   fn new_proxy(mut ekf: EKF, tx: Snd<(TagID, Vector3<f64>)>,
                 mut rx: Recv<(Matrix3x4<f64>, FilterArgs)>, id: usize) -> JoinHandle<()>{
     tokio::spawn(async move {
-      let (t, (meas, timestep)) = rx.recv().await.unwrap();
-      println!("geenerating estimate");
-      ekf.filter(meas,t, timestep);
-      println!("sending estimate");
-      tx.send((id, ekf.x));
+      loop {
+        let (t, (meas, timestep)) = rx.recv().await.unwrap();
+        println!("geenerating estimate");
+        ekf.filter(meas,t, timestep);
+        println!("sending estimate");
+        tx.send((id, ekf.x));
+      }
     })
   }
 
