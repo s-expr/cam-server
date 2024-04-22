@@ -46,7 +46,7 @@ impl<P: Packet> NetThreadHandle<P> {
 }
 
 impl<P: Packet + 'static > CamCtn<P> for UdpCtn<P> {
-  fn new(info: CamCtnInfo, packet_out: mpsc::Sender<P> )
+  fn new(info: CamCtnInfo, packet_out: mpsc::Sender<(usize, P)> )
          -> Result<UdpCtn<P> , std::io::Error> {
     let mut status = Status::Connected;
 
@@ -74,7 +74,7 @@ impl<P: Packet + 'static > CamCtn<P> for UdpCtn<P> {
                 let slc = &buf[0..size];
                 let p = P::unmarshal(&mut Cursor::new(slc)).unwrap();
                 packet_out
-                  .send(p).await
+                  .send((info.id,p)).await
                   .expect(&format!("unable to receive packet from camera {}", id));
 
               }

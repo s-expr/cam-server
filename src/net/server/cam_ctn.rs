@@ -24,7 +24,7 @@ pub struct CamCtnInfo {
 
 
 pub trait CamCtn<P: Packet + Sized> {
-  fn new(info: CamCtnInfo, packet_tx: Sender<P>)
+  fn new(info: CamCtnInfo, packet_tx: Sender<(usize, P)>)
          -> Result<Self, std::io::Error> where Self: Sized;
 
   fn close(self) -> Result<(), Error>;

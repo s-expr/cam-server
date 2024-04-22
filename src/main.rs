@@ -33,7 +33,7 @@ use opencv::highgui;
 
 #[tokio::main]
 async fn main() {
-  let (ts_tx, mut ts_rx) = mpsc::channel::<TagStreamPacket>(config::MTU);
+  let (ts_tx, mut ts_rx) = mpsc::channel::<(usize, TagStreamPacket)>(config::MTU);
   let mut ctns: Vec<UdpCtn<TagStreamPacket>> = Vec::new();
   for i in 0..config::NUM_CAMERAS {
     let info: CamCtnInfo = CamCtnInfo {
@@ -49,23 +49,29 @@ async fn main() {
 	highgui::named_window(window, highgui::WINDOW_AUTOSIZE).unwrap();
   
   // STAGE 1: Window Detection
-  let (tag_tx, mut tag_rx) = mpsc::unbounded_channel::<(TagID, ekf::FilterArgs)>();
+  let (tag_tx, mut tag_rx) = mpsc::unbounded_channel::<(usize, (TagID, ekf::FilterArgs))>();
   let cam_loop = tokio::spawn(async move {
     let mut wrap = Detwrapper{det:Detector::new("tagCustom48h12")};
     wrap.det.set_thread_number(8);
     wrap.det.set_decimation(1.0);
     wrap.det.set_sigma(2.0);
+
+    println!("Finished building detector");
     loop {
 
       tokio::select!{
         p = ts_rx.recv() => {
 
-          let mut packet = p.unwrap();
+          let (cid, mut packet) = p.unwrap();
           let head = &mut packet.header;
           let w = head.width as usize;
 
           let img = &packet.data.as_aprilimg(w,w);
 
+          println!("Received a window of size {}x{} px:{} py:{} fc:{} from camera {}",
+                   head.width, head.width, head.px, head.py, head.ts, cid);
+
+          /*
           //visualizaition for debug
           let mat = Mat::from_slice_rows_cols(
             img.as_slice(),
@@ -79,15 +85,18 @@ async fn main() {
           highgui::imshow(window, &mat.unwrap());
           let key = highgui::wait_key(10);
 
+
+          */
           let maybe_det = wrap.det.detect_one(img);
           if let Some((id, [center_x, center_y])) = maybe_det {
-            println!("Detected tag id {} from camera {} at {}",
-                     id, head.cam_id, head.ts)
+            println!("Detected tag id {}", id);
             //TODO: make less error prome with try_into(). 
-            //head.px += center_x as u16;
-            //head.py += center_y as u16;
+            head.px += center_x as u16;
+            head.py += center_y as u16;
+            tag_tx.send((cid, (id, (Vector2::new(head.px as f64, head.py as f64),head.ts))));
             
           }
+
         }
       }
     }
@@ -95,7 +104,7 @@ async fn main() {
 
   // STAGE 2: EKF
   let (tag_pos_tx, mut tag_pos_rx) = mpsc::unbounded_channel::<(TagID, Vector3<f64>)>();
-  let ekf_tp = ekf::EKFThreadPool::new(tag_pos_tx, tag_rx, &config::TAGS);
+  let ekf_tp = ekf::EKFThreadPool::new(tag_pos_tx, tag_rx, "./calibration.npy", &config::TAGS);
   ekf_tp.start_loop();
 
 

@@ -3,6 +3,7 @@ use na::{Vector2, Vector3, Matrix2, Matrix3, Matrix3x4, Matrix2x3};
 use std::collections::HashMap;
 use tokio::task::JoinHandle;
 use tokio::sync::{mpsc, mpsc::{UnboundedSender, UnboundedReceiver}};
+use npyz;
 use crate::config;
 
 use crate::tag_detector::detector::TagID;
@@ -77,23 +78,32 @@ impl EKF {
 
 }
 
-pub type FilterArgs = (Vector2<f64>, Matrix3x4<f64>, u32);
+pub type FilterArgs = (Vector2<f64>, u32);
 type Snd<T> = UnboundedSender<T>;
 type Recv<T> = UnboundedReceiver<T>;
 
 pub struct EKFThreadPool {
-  threads: HashMap<TagID, (Snd<FilterArgs>, JoinHandle<()>)>,
-  pub rx: Recv<(TagID, FilterArgs)>,
+  threads: HashMap<TagID, (Snd<(Matrix3x4<f64>, FilterArgs)>, JoinHandle<()>)>,
+  calibration: HashMap<usize, Matrix3x4<f64>>,
+  pub rx: Recv<(usize, (TagID, FilterArgs))>,
   tx: Snd<(TagID, Vector3<f64>)>,
 }
 
 impl EKFThreadPool {
   pub fn new(tp_tx:Snd<(TagID, Vector3<f64>)>,
-             mut tp_rx:Recv<(TagID, FilterArgs)>,
+             mut tp_rx:Recv<(usize, (TagID, FilterArgs))>,
+             calibration: &str,
              ids: &[TagID]) -> EKFThreadPool {
     // create an ekf for each tag and parallelize it into a thread
+    let cal_file = std::fs::read(calibration).unwrap();
+    let cal_data = npyz::NpyFile::new(&cal_file[..]).unwrap().into_vec::<f64>().unwrap();
+    let mut calibration: HashMap<usize, Matrix3x4<f64>> = HashMap::new();
+    for i in 0..config::NUM_CAMERAS {
+    //make compatible with more than 2 cameras
+      calibration.insert(i,Matrix3x4::<f64>::from_row_slice(&cal_data[i*12..(i*12+12)]));
+    }
     let threads = ids.iter().fold(HashMap::new(), |mut tds, id| {
-      let (td_tx, mut td_rx) = mpsc::unbounded_channel::<FilterArgs>();
+      let (td_tx, mut td_rx) = mpsc::unbounded_channel::<(Matrix3x4<f64>,FilterArgs)>();
       let ekf = EKF::new(Matrix2::from_element(1e-3),
                          Matrix3::from_element(1e-4),
                          Vector3::zeros(),
@@ -105,6 +115,7 @@ impl EKFThreadPool {
 
     EKFThreadPool {
       threads, 
+      calibration,
       rx: tp_rx,
       tx: tp_tx,
     }
@@ -113,10 +124,10 @@ impl EKFThreadPool {
   // Wraps an ekf into a thread and allows them
   // all to output to the same output
   fn new_proxy(mut ekf: EKF, tx: Snd<(TagID, Vector3<f64>)>,
-                mut rx: Recv<FilterArgs>, id: usize) -> JoinHandle<()>{
+                mut rx: Recv<(Matrix3x4<f64>, FilterArgs)>, id: usize) -> JoinHandle<()>{
     tokio::spawn(async move {
-      let (meas, t, timestep) = rx.recv().await.unwrap();
-      ekf.filter(meas, t, timestep);
+      let (t, (meas, timestep)) = rx.recv().await.unwrap();
+      ekf.filter(meas,t, timestep);
       tx.send((id, ekf.x));
     })
   }
@@ -134,8 +145,8 @@ impl EKFThreadPool {
         
         tokio::select!{
           arg = rx.recv() => {
-            let (tag, args) = arg.unwrap();
-            self.threads[&tag].0.send(args);
+            let (id,(tag, args)) = arg.unwrap();
+            self.threads[&tag].0.send((self.calibration[&id], args));
           }
         }
       }
