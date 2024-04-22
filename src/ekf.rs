@@ -127,7 +127,9 @@ impl EKFThreadPool {
                 mut rx: Recv<(Matrix3x4<f64>, FilterArgs)>, id: usize) -> JoinHandle<()>{
     tokio::spawn(async move {
       let (t, (meas, timestep)) = rx.recv().await.unwrap();
+      println!("geenerating estimate");
       ekf.filter(meas,t, timestep);
+      println!("sending estimate");
       tx.send((id, ekf.x));
     })
   }
@@ -145,8 +147,11 @@ impl EKFThreadPool {
         
         tokio::select!{
           arg = rx.recv() => {
-            let (id,(tag, args)) = arg.unwrap();
-            self.threads[&tag].0.send((self.calibration[&id], args));
+            let (cid,(tag, args)) = arg.unwrap();
+
+            println!("[EKF] camera_id: {}, tag_id: {}, px: {}, py: {}, ts: {}",
+                    cid, tag, args.0.x, args.0.y, args.1);
+            self.threads[&tag].0.send((self.calibration[&cid], args));
           }
         }
       }

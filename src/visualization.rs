@@ -22,6 +22,7 @@ const POINT_RADIUS: f32 = 0.1; // Increase the radius for larger point represent
 pub async fn visualize(points_rx: &mut UnboundedReceiver<TagPoint>) {
   // Create a window for rendering.
   let mut window = Window::new("Kiss3d: moving point");
+  println!("test");
 
   // Set the light to be in the front.
   window.set_light(Light::StickToCamera);
@@ -44,11 +45,9 @@ pub async fn visualize(points_rx: &mut UnboundedReceiver<TagPoint>) {
 
   // Axis length.
   let axis_length = 4.0;
-
   // Main loop.
   while window.render() {
     let (id, pos) = points_rx.recv().await.unwrap();
-
     for (_, mut sphere) in &mut spheres {
       sphere.set_color(1.0, 0.0, 0.0); // Red
     }

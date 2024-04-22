@@ -15,13 +15,16 @@ pub struct TagStreamPacket {
 
 impl Packet for TagStreamPacket {
   fn unmarshal<B: Buf>(buf: & mut B) -> Result<Self, ()> {
-    let header = TagStreamHeader {
+    let mut header = TagStreamHeader {
         width : u16::from_be(buf.get_u16()),
         px : u16::from_be(buf.get_u16()),
         py : u16::from_be(buf.get_u16()),
-        ts: u32::from_be(buf.get_u32()),
+        ts:  0
       };
-    buf.advance(1);
+    //throw away spacer
+    buf.get_u16();
+    header.ts = u32::from_be(buf.get_u32());
+    //buf.advance(1);
     Ok(TagStreamPacket {
       header: header,
       data: buf.chunk().to_vec()
