@@ -94,7 +94,6 @@ async fn main() {
             head.px += center_x as u16;
             head.py += center_y as u16;
             tag_tx.send((cid, (id, (Vector2::new(head.px as f64, head.py as f64),head.ts))));
-            
           }
 
         }
@@ -109,7 +108,8 @@ async fn main() {
 
 
   // STAGE 3: Visualization
-  // visualization::visualize(&mut tag_pos_rx).await;
+  visualization::visualize(&mut tag_pos_rx);
+  /*
   loop {
     let (id, pt) = tag_pos_rx.recv().await.unwrap();
     let a = pt.x;
@@ -117,6 +117,7 @@ async fn main() {
     let c = pt.z;
     print!("{id} x: {a} y: {b} z: {c}\n");
   }
+  */
 }
 
 
