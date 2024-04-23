@@ -20,6 +20,7 @@ use server::proto::ts_custom::TagStreamPacket;
 use server::proto::ts_custom::TagStreamHeader;
 use server::proto::Packet;
 use tokio::sync::mpsc;
+use tokio::time::Instant;
 use std::sync::Arc;
 use na::{Vector2, Vector3, Matrix2, Matrix3, Matrix3x4, Matrix2x3};
 
@@ -35,9 +36,13 @@ use tokio::task::JoinHandle;
 #[tokio::main]
 async fn main() {
   let (tag_pos_tx, mut tag_pos_rx) = mpsc::unbounded_channel::<(TagID, Vector3<f64>)>();
-  let ekf_tp = Arc::new(ekf::EKFThreadPool::new(tag_pos_tx, "./calibration.npy", &config::TAGS));
+  let ekf_tp = Arc::new(ekf::EKFThreadPool::new(tag_pos_tx.clone(), "./calibration.npy", &config::TAGS));
   let mut ctns: Vec<(UdpCtn<TagStreamPacket>, JoinHandle<()>)> = Vec::new();
 
+
+  let window = "video capture";
+	highgui::named_window(window, highgui::WINDOW_AUTOSIZE).unwrap();
+  
   for i in 0..config::NUM_CAMERAS {
     let ekf_tp = ekf_tp.clone();
     let (ts_tx, mut ts_rx) = mpsc::channel::<TagStreamPacket>(config::MTU);
@@ -72,7 +77,6 @@ async fn main() {
                      head.width, head.width, head.px, head.py, head.ts, i);
 
             
-            /*
             //visualizaition for debug
             let mat = Mat::from_slice_rows_cols(
             img.as_slice(),
@@ -85,10 +89,12 @@ async fn main() {
 
             highgui::imshow(window, &mat.unwrap());
             let key = highgui::wait_key(10);
-             */
 
-            
+            let now = Instant::now();
             let maybe_det = wrap.det.detect_one(img);
+
+            let elapsed_time = now.elapsed();
+            println!("Running detection took {} seconds.", elapsed_time.as_secs());
             if let Some((id, [center_x, center_y])) = maybe_det {
               println!("Detected tag id {}", id);
               //TODO: make less error prome with try_into(). 
@@ -104,9 +110,6 @@ async fn main() {
   }
 
 
-  let window = "video capture";
-	highgui::named_window(window, highgui::WINDOW_AUTOSIZE).unwrap();
-  
   //let (tag_tx, mut tag_rx) = mpsc::unbounded_channel::<(usize, (TagID, ekf::DetectionInfo))>();
   
 

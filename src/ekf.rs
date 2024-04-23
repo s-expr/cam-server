@@ -138,7 +138,9 @@ impl EKFThreadPool {
     tokio::spawn(async move {
       loop {
         let (calmat, pos, timestamp) = rx.recv().await.unwrap();
+        println!("reaceived detected tag on ekf {}", id);
         ekf.filter(pos, calmat, timestamp);
+        println!("[EKF {}] sending <{},{},{}>", id, ekf.x.x, ekf.x.y, ekf.x.z );
         tx.send((id, ekf.x));
       }
     })
