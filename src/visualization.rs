@@ -40,8 +40,8 @@ pub fn visualize(points_rx: &mut UnboundedReceiver<TagPoint>) {
 
   // Set the color of the sphere (optional, default is white).
   spheres.get_mut(&0).unwrap().set_color(1.0, 0.0, 0.0); // Red
-  spheres.get_mut(&1).unwrap().set_color(0.0, 1.0, 0.0); // Red
-  spheres.get_mut(&2).unwrap().set_color(0.0, 0.0, 1.0); // Red
+  spheres.get_mut(&1).unwrap().set_color(0.0, 1.0, 0.0); // Blue
+  spheres.get_mut(&2).unwrap().set_color(0.0, 0.0, 1.0); // Green
 
   // Axis length.
   let axis_length = 4.0;
