@@ -40,16 +40,16 @@ async fn main() {
 
   for i in 0..config::NUM_CAMERAS {
     let ekf_tp = ekf_tp.clone();
+    let (ts_tx, mut ts_rx) = mpsc::channel::<TagStreamPacket>(config::MTU);
+
     let info: CamCtnInfo = CamCtnInfo {
       addr : config::ADDRESS,
       port : config::START_PORT + i,
       id : i,
     };
 
-    let (ts_tx, mut ts_rx) = mpsc::channel::<TagStreamPacket>(config::MTU);
-    let ctn = UdpCtn::<TagStreamPacket>::new(info, ts_tx).unwrap();
-
     // STAGE 1: Window Detection
+    let ctn = UdpCtn::<TagStreamPacket>::new(info, ts_tx).unwrap();
     let cam_loop = tokio::spawn(async move {
       let mut wrap = Detwrapper{det:Detector::new("tagCustom48h12")};
       wrap.det.set_thread_number(8);
