@@ -20,11 +20,12 @@ use server::proto::ts_custom::TagStreamPacket;
 use server::proto::ts_custom::TagStreamHeader;
 use server::proto::Packet;
 use tokio::sync::mpsc;
-use tokio::sync::Mutex; 
+use std::sync::Arc;
 use na::{Vector2, Vector3, Matrix2, Matrix3, Matrix3x4, Matrix2x3};
 
 use opencv::prelude::*;
 use opencv::highgui;
+use tokio::task::JoinHandle;
 
 
 
@@ -33,78 +34,83 @@ use opencv::highgui;
 
 #[tokio::main]
 async fn main() {
-  let (ts_tx, mut ts_rx) = mpsc::channel::<(usize, TagStreamPacket)>(config::MTU);
-  let mut ctns: Vec<UdpCtn<TagStreamPacket>> = Vec::new();
+  let (tag_pos_tx, mut tag_pos_rx) = mpsc::unbounded_channel::<(TagID, Vector3<f64>)>();
+  let ekf_tp = Arc::new(ekf::EKFThreadPool::new(tag_pos_tx, "./calibration.npy", &config::TAGS));
+  let mut ctns: Vec<(UdpCtn<TagStreamPacket>, JoinHandle<()>)> = Vec::new();
+
   for i in 0..config::NUM_CAMERAS {
+    let ekf_tp = ekf_tp.clone();
     let info: CamCtnInfo = CamCtnInfo {
       addr : config::ADDRESS,
       port : config::START_PORT + i,
       id : i,
     };
-    let ctn = UdpCtn::<TagStreamPacket>::new(info, ts_tx.clone()).unwrap();
-    ctns.push(ctn);
-  }
 
-  let window = "video capture";
-	highgui::named_window(window, highgui::WINDOW_AUTOSIZE).unwrap();
-  
-  // STAGE 1: Window Detection
-  let (tag_tx, mut tag_rx) = mpsc::unbounded_channel::<(usize, (TagID, ekf::FilterArgs))>();
-  let cam_loop = tokio::spawn(async move {
-    let mut wrap = Detwrapper{det:Detector::new("tagCustom48h12")};
-    wrap.det.set_thread_number(8);
-    wrap.det.set_decimation(1.0);
-    wrap.det.set_sigma(2.0);
+    let (ts_tx, mut ts_rx) = mpsc::channel::<TagStreamPacket>(config::MTU);
+    let ctn = UdpCtn::<TagStreamPacket>::new(info, ts_tx).unwrap();
 
-    println!("Finished building detector");
-    loop {
+    // STAGE 1: Window Detection
+    let cam_loop = tokio::spawn(async move {
+      let mut wrap = Detwrapper{det:Detector::new("tagCustom48h12")};
+      wrap.det.set_thread_number(8);
+      wrap.det.set_decimation(1.0);
+      wrap.det.set_sigma(2.0);
 
-      tokio::select!{
-        p = ts_rx.recv() => {
+      println!("Finished building detector");
+      loop {
 
-          let (cid, mut packet) = p.unwrap();
-          let head = &mut packet.header;
-          let w = head.width as usize;
+        tokio::select!{
+          p = ts_rx.recv() => {
 
-          let img = &packet.data.as_aprilimg(w,w);
+            let mut packet = p.unwrap();
+            let head = &mut packet.header;
+            let w = head.width as usize;
 
-          println!("Received a window of size {}x{} px:{} py:{} fc:{} from camera {}",
-                   head.width, head.width, head.px, head.py, head.ts, cid);
+            let img = &packet.data.as_aprilimg(w,w);
 
-          
-          //visualizaition for debug
-          let mat = Mat::from_slice_rows_cols(
+            println!("Received a window of size {}x{} px:{} py:{} fc:{} from camera {}",
+                     head.width, head.width, head.px, head.py, head.ts, i);
+
+            
+            /*
+            //visualizaition for debug
+            let mat = Mat::from_slice_rows_cols(
             img.as_slice(),
             w, w
           );
-          if let Err(_) = mat {
+            if let Err(_) = mat {
             continue;
           };
 
 
-          highgui::imshow(window, &mat.unwrap());
-          let key = highgui::wait_key(10);
+            highgui::imshow(window, &mat.unwrap());
+            let key = highgui::wait_key(10);
+             */
 
-
-          
-          let maybe_det = wrap.det.detect_one(img);
-          if let Some((id, [center_x, center_y])) = maybe_det {
-            println!("Detected tag id {}", id);
-            //TODO: make less error prome with try_into(). 
-            head.px += center_x as u16;
-            head.py += center_y as u16;
-            tag_tx.send((cid, (id, (Vector2::new(head.px as f64, head.py as f64),head.ts))));
+            
+            let maybe_det = wrap.det.detect_one(img);
+            if let Some((id, [center_x, center_y])) = maybe_det {
+              println!("Detected tag id {}", id);
+              //TODO: make less error prome with try_into(). 
+              head.px += center_x as u16;
+              head.py += center_y as u16;
+              ekf_tp.send(id, i,  head.px as f64, head.py as f64, head.ts);
+            }
           }
-
         }
       }
-    }
-  });
+    });
+    ctns.push((ctn, cam_loop));
+  }
+
+
+  let window = "video capture";
+	highgui::named_window(window, highgui::WINDOW_AUTOSIZE).unwrap();
+  
+  //let (tag_tx, mut tag_rx) = mpsc::unbounded_channel::<(usize, (TagID, ekf::DetectionInfo))>();
+  
 
   // STAGE 2: EKF
-  let (tag_pos_tx, mut tag_pos_rx) = mpsc::unbounded_channel::<(TagID, Vector3<f64>)>();
-  let ekf_tp = ekf::EKFThreadPool::new(tag_pos_tx, tag_rx, "./calibration.npy", &config::TAGS);
-  ekf_tp.start_loop();
 
 
   // STAGE 3: Visualization
