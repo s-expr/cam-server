@@ -68,9 +68,9 @@ pub fn visualize(points_rx: &mut UnboundedReceiver<TagPoint>) {
       // Set the new position for the sphere.
       (&mut spheres.get_mut(&id).unwrap()).set_local_translation(
         Translation3::new(
-          pos.x as f32,
-          pos.y as f32,
-          pos.z as f32
+          (pos.x as f32)/250.0,
+          (pos.y as f32)/250.0,
+          (pos.z as f32)/250.0
         )
       );
 

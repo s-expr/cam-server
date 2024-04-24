@@ -10,11 +10,12 @@ use crate::tag_detector::detector::TagID;
 
 // Assuming the camera_matrix is a 3x4 matrix and x is a 3x1 vector
 fn motion_model(x: &Vector3<f64>, dt: u32) -> Vector3<f64> {
-  x + Vector3::new(
-    dt as f64 * 0.1, 
-    dt as f64 * 0.1, 
-    dt as f64 * 0.1
-  )
+  *x
+  //  + Vector3::new(
+  //   dt as f64 * 0.1, 
+  //   dt as f64 * 0.1, 
+  //   dt as f64 * 0.1
+  // )
 }
 
 fn motion_jacobian(x: &Vector3<f64>) -> Matrix3<f64> {
@@ -57,28 +58,54 @@ impl EKF {
     if timestep < self.most_recent_timestep {
       return;
     } else if timestep > self.most_recent_timestep {
+
+      //printlin!("meas: {}", meas);
+      //printlin!("T_cam: {}", t);
+      //printlin!("timestep: {}", timestep);
+
+
       self.dt = timestep - self.most_recent_timestep;
+      //printlin!("dt: {}", self.dt);
       self.most_recent_timestep = timestep;
       self.cov = self.cov_init;
+      //printlin!("cov_init: {}", self.cov);
+
 
       let f = motion_jacobian(&self.x);
+      //printlin!("mo_jac: {}", f);
+
       self.x = motion_model(&self.x, self.dt);
+      //printlin!("x_pred: {}", self.x);
+
       self.cov = &f * &self.cov * f.transpose() + &self.q;
+      //printlin!("cov_pred: {}", self.cov);
+
     }
 
     let h = measurement_jacobian(&t);
+    //printlin!("meas_jac: {}", h);
+
+
     let y = meas - measurement_model(&self.x, &t);
+    //printlin!("y: {}", y);
+
 
     let s = &h * &self.cov * h.transpose() + &self.r;
+    //printlin!("s: {}", s);
 
 
-    if let Some(s_inv) = s.try_inverse() {
-      let k = &self.cov * (h.transpose() * s_inv);
-      self.x += &k * y;
-      self.cov = (Matrix3::identity() - &k * &h) * &self.cov;
-    } else { 
-      return;
-    }
+    let s_dg = s.pseudo_inverse(1e-8).unwrap();
+    //printlin!("s_dg: {}", s_dg);
+
+    let k = &self.cov * (h.transpose() * s_dg);
+    //printlin!("k: {}", k);
+
+    self.x += &k * y;
+    //printlin!("x_upd: {}", self.x);
+    self.cov = (Matrix3::identity() - &k * &h) * &self.cov;
+    //printlin!("cov_upd: {}", self.cov)
+
+
   }
 
 }
@@ -116,8 +143,8 @@ impl EKFThreadPool {
     // create an ekf for each tag and parallelize it into a thread
     let threads = ids.iter().fold(HashMap::new(), |mut tds, id| {
       let (detinfo_tx, mut detinfo_rx) = mpsc::unbounded_channel::<FilterArgs>();
-      let ekf = EKF::new(Matrix2::from_element(1e-3),
-                         Matrix3::from_element(1e-4),
+      let ekf = EKF::new(1.0 * Matrix2::identity(),
+                         1.0 * Matrix3::identity(),
                          Vector3::zeros(),
                          Matrix3::zeros());
       tds.insert(*id, (detinfo_tx, Self::new_proxy(ekf, tagpos_tx.clone(), detinfo_rx, *id))); 

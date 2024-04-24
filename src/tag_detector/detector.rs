@@ -20,7 +20,7 @@ pub trait DetectorExt {
   fn new(family: &str) -> Detector {
     let builder = DetectorBuilder::new();
     let family: Family = family.parse().unwrap();
-    builder.add_family_bits(family,0).build().unwrap()
+    builder.add_family_bits(family,2).build().unwrap()
   }
   fn detect_one(&mut self, img: &Image) -> Option<(TagID, [f64;2])>;
 }
