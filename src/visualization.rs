@@ -47,30 +47,27 @@ pub fn visualize(points_rx: &mut UnboundedReceiver<TagPoint>) {
   let axis_length = 4.0;
   // Main loop.
   while window.render() {
+    window.draw_line(&Point3::new(0.0, 0.0, 0.0),
+                     &Point3::new(axis_length, 0.0, 0.0),
+                     &Point3::new(1.0, 0.0, 0.0));
+
+    window.draw_line(&Point3::new(0.0, 0.0, 0.0),
+                     &Point3::new(0.0, axis_length, 0.0),
+                     &Point3::new(0.0, 1.0, 0.0));
+
+    window.draw_line(&Point3::new(0.0, 0.0, 0.0),
+                     &Point3::new(0.0, 0.0, axis_length),
+                     &Point3::new(0.0, 0.0, 1.0));
+
+
     if let Ok((id, pos)) = points_rx.try_recv() {
-      for (_, mut sphere) in &mut spheres {
-        sphere.set_color(1.0, 0.0, 0.0); // Red
-      }
-
       // Draw axis
-      window.draw_line(&Point3::new(0.0, 0.0, 0.0),
-                      &Point3::new(axis_length, 0.0, 0.0),
-                      &Point3::new(1.0, 0.0, 0.0));
-
-      window.draw_line(&Point3::new(0.0, 0.0, 0.0),
-                      &Point3::new(0.0, axis_length, 0.0),
-                      &Point3::new(0.0, 1.0, 0.0));
-
-      window.draw_line(&Point3::new(0.0, 0.0, 0.0),
-                      &Point3::new(0.0, 0.0, axis_length),
-                      &Point3::new(0.0, 0.0, 1.0));
-
       // Set the new position for the sphere.
       (&mut spheres.get_mut(&id).unwrap()).set_local_translation(
         Translation3::new(
-          (pos.x as f32)/250.0,
-          (pos.y as f32)/250.0,
-          (pos.z as f32)/250.0
+          pos.x as f32/ 100.0,
+          pos.y as f32/100.0,
+          pos.z as f32/ 100.0
         )
       );
 

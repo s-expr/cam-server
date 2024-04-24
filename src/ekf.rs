@@ -55,20 +55,18 @@ impl EKF {
 
   pub fn filter(&mut self, meas: Vector2<f64>, t: Matrix3x4<f64>, timestep: u32) {
 
-    if timestep < self.most_recent_timestep {
-      return;
-    } else if timestep > self.most_recent_timestep {
+    if timestep > self.most_recent_timestep {
 
       //printlin!("meas: {}", meas);
       //printlin!("T_cam: {}", t);
       //printlin!("timestep: {}", timestep);
 
+      //println!("cov: {}", self.cov);
 
       self.dt = timestep - self.most_recent_timestep;
       //printlin!("dt: {}", self.dt);
       self.most_recent_timestep = timestep;
-      self.cov = self.cov_init;
-      //printlin!("cov_init: {}", self.cov);
+      //self.cov = self.cov_init;
 
 
       let f = motion_jacobian(&self.x);
@@ -78,7 +76,7 @@ impl EKF {
       //printlin!("x_pred: {}", self.x);
 
       self.cov = &f * &self.cov * f.transpose() + &self.q;
-      //printlin!("cov_pred: {}", self.cov);
+      //println!("cov_pred: {}", self.cov);
 
     }
 
@@ -103,7 +101,7 @@ impl EKF {
     self.x += &k * y;
     //printlin!("x_upd: {}", self.x);
     self.cov = (Matrix3::identity() - &k * &h) * &self.cov;
-    //printlin!("cov_upd: {}", self.cov)
+    //println!("cov_upd: {}", self.cov)
 
 
   }
@@ -165,9 +163,9 @@ impl EKFThreadPool {
     tokio::spawn(async move {
       loop {
         let (calmat, pos, timestamp) = rx.recv().await.unwrap();
-        println!("reaceived detected tag on ekf {}", id);
+        //println!("reaceived detected tag on ekf {}", id);
         ekf.filter(pos, calmat, timestamp);
-        println!("[EKF {}] sending <{},{},{}>", id, ekf.x.x, ekf.x.y, ekf.x.z );
+        //println!("[EKF {}] sending <{},{},{}>", id, ekf.x.x, ekf.x.y, ekf.x.z );
         tx.send((id, ekf.x));
       }
     })

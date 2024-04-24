@@ -38,10 +38,8 @@ async fn main() {
   let (tag_pos_tx, mut tag_pos_rx) = mpsc::unbounded_channel::<(TagID, Vector3<f64>)>();
   let ekf_tp = Arc::new(ekf::EKFThreadPool::new(tag_pos_tx.clone(), "./calibration.npy", &config::TAGS));
   let mut ctns: Vec<(UdpCtn<TagStreamPacket>, JoinHandle<()>)> = Vec::new();
+  let posns: Vec<Vector3<f64>>  = Vec::new();
 
-
-  let window = "video capture";
-	highgui::named_window(window, highgui::WINDOW_AUTOSIZE).unwrap();
   
   for i in 0..config::NUM_CAMERAS {
     let ekf_tp = ekf_tp.clone();
@@ -62,21 +60,24 @@ async fn main() {
       wrap.det.set_sigma(2.0);
 
       println!("Finished building detector");
+
       loop {
 
         tokio::select!{
           p = ts_rx.recv() => {
 
+            let now = Instant::now();
             let mut packet = p.unwrap();
             let head = &mut packet.header;
             let w = head.width as usize;
 
             let img = &packet.data.as_aprilimg(w,w);
 
-            println!("Received a window of size {}x{} px:{} py:{} fc:{} from camera {}",
-                     head.width, head.width, head.px, head.py, head.ts, i);
+            //println!("Received a window of size {}x{} px:{} py:{} fc:{} from camera {}",
+            //        head.width, head.width, head.px, head.py, head.ts, i);
 
             
+            /*
             //visualizaition for debug
             let mat = Mat::from_slice_rows_cols(
             img.as_slice(),
@@ -90,11 +91,9 @@ async fn main() {
             highgui::imshow(window, &mat.unwrap());
             let key = highgui::wait_key(10);
 
-            let now = Instant::now();
-            let maybe_det = wrap.det.detect_one(img);
+             */
 
-            let elapsed_time = now.elapsed();
-            println!("Running detection took {} seconds.", elapsed_time.as_secs());
+            let maybe_det = wrap.det.detect_one(img);
             if let Some((id, [center_x, center_y])) = maybe_det {
               println!("Detected tag id {}", id);
               //TODO: make less error prome with try_into(). 
@@ -102,6 +101,10 @@ async fn main() {
               head.py += center_y as u16;
               ekf_tp.send(id, i,  head.px as f64, head.py as f64, head.ts);
             }
+
+            let elapsed_time = now.elapsed();
+
+            //println!("Running detection took {} seconds.", elapsed_time.as_secs());
           }
         }
       }
